@@ -2,6 +2,11 @@ import torch
 import torch.nn.functional as F
 import numpy as np
 
+if torch.cuda.is_available():
+    device = "cuda"
+else:
+    device = "cpu"
+
 torch.set_default_device(device)
 def softmax(x):
     z = x - max(x)

@@ -31,8 +31,8 @@ def prepare_data(prompt):
     try:
         data = pd.read_csv('data/indoMMLU.csv')
     except FileNotFoundError:
-        data = pd.read_csv('./IndoMMLU/indoMMLU.csv')
-        
+        data = pd.read_csv('./IndoMMLU/data/indoMMLU.csv')
+
     for idx, row in data.iterrows():
         if row['level'] == 'Seleksi PTN':
             level = 'seleksi masuk universitas'

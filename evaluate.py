@@ -28,7 +28,11 @@ def prepare_data(prompt):
     outputs = []
     outputs_options = []
     key2id = {'A': 0, 'B': 1, 'C': 2, 'D': 3, 'E': 4}
-    data = pd.read_csv('data/indoMMLU.csv')
+    try:
+        data = pd.read_csv('data/indoMMLU.csv')
+    except FileNotFoundError:
+        data = pd.read_csv('./IndoMMLU/indoMMLU.csv')
+        
     for idx, row in data.iterrows():
         if row['level'] == 'Seleksi PTN':
             level = 'seleksi masuk universitas'

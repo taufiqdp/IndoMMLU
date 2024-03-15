@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 import numpy as np
 
-
+torch.set_default_device(device)
 def softmax(x):
     z = x - max(x)
     numerator = np.exp(z)

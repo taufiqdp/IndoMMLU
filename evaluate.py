@@ -15,7 +15,7 @@ if torch.cuda.is_available():
 else:
     device = "cpu"
 
-
+torch.set_default_device(device)
 def get_prompt(args):
     PROMPT = 'Ini adalah soal [SUBJECT] untuk [LEVEL]. Pilihlah salah satu jawaban yang dianggap benar!\n\n[INPUT]\n[OPTION]\n\nJawaban: '
     if args.lora_weights != "x":
@@ -58,6 +58,7 @@ def parse_args():
     parser.add_argument("--base_model", type=str, help="Path to pretrained model", required=True)
     parser.add_argument("--lora_weights", type=str, default="x")
     parser.add_argument("--output_folder", type=str, default="output", required=True)
+    parser.add_argument("--hf_token", type=str)
     args = parser.parse_args()
     return args
 
@@ -69,15 +70,15 @@ def main():
     tokenizer_class = LlamaTokenizer if 'llama' in args.base_model else AutoTokenizer
     model_class = LlamaForCausalLM if 'llama' in args.base_model else AutoModelForCausalLM
 
-    SAVE_FILE = '{args.output_folder}/result_{args.base_model.split("/")[-1]}_{args.by_letter}.csv'
-    tokenizer = tokenizer_class.from_pretrained(args.base_model)
+    SAVE_FILE = f'{args.output_folder}/result_{args.base_model.split("/")[-1]}_{args.by_letter}.csv'
+    tokenizer = tokenizer_class.from_pretrained(args.base_model, token=args.hf_token, device_map="auto")
     
     if 'mt0' in args.base_model:
-        model = AutoModelForSeq2SeqLM.from_pretrained(args.base_model, device_map="auto", load_in_8bit="xxl" in args.base_model)
+        model = AutoModelForSeq2SeqLM.from_pretrained(args.base_model, device_map="auto", load_in_8bit="xxl" in args.base_model, token=args.hf_token, trust_remote_code=True)
         from utils import predict_classification_mt0 as predict_classification
         from utils import predict_classification_mt0_by_letter as predict_classification_by_letter
     else:
-        model = model_class.from_pretrained(args.base_model, load_in_8bit=args.load_8bit, torch_dtype=torch.float16, trust_remote_code=True, device_map="auto")
+        model = model_class.from_pretrained(args.base_model, load_in_8bit=args.load_8bit, torch_dtype=torch.float16, trust_remote_code=True, device_map="auto", token=args.hf_token)
         from utils import predict_classification_causal as predict_classification
         from utils import predict_classification_causal_by_letter as predict_classification_by_letter
     
@@ -87,8 +88,9 @@ def main():
             model,
             args.lora_weights,
             torch_dtype=torch.float16,
+            token=args.hf_token
         )
-        SAVE_FILE = '{args.output_folder}/result_{args.lora_weight.split("/")[-1]}_{args.by_letter}.csv'
+        SAVE_FILE = f'{args.output_folder}/result_{args.lora_weight.split("/")[-1]}_{args.by_letter}.csv'
 
     # unwind broken decapoda-research config
     if 'llama' in args.base_model:
@@ -97,9 +99,6 @@ def main():
         model.config.eos_token_id = 2
 
     model.eval()
-    if torch.__version__ >= "2" and sys.platform != "win32":
-        model = torch.compile(model)
-    
     
     prompt = get_prompt(args)
     inputs, golds, outputs_options = prepare_data(prompt)

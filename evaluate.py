@@ -9,6 +9,8 @@ from tqdm import tqdm
 from numpy import argmax
 import torch
 from sklearn.metrics import accuracy_score
+from transformers import BitsAndBytesConfig
+
 
 if torch.cuda.is_available():
     device = "cuda"
@@ -57,6 +59,7 @@ def prepare_data(prompt):
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--load_8bit", action='store_true')
+    parser.add_argument("--load_4bit", action='store_true')
     parser.add_argument("--share_gradio", action='store_true')
     parser.add_argument("--by_letter", action='store_true')
     parser.add_argument("--base_model", type=str, help="Path to pretrained model", required=True)
@@ -76,13 +79,19 @@ def main():
 
     SAVE_FILE = f'{args.output_folder}/result_{args.base_model.split("/")[-1]}_{args.by_letter}.csv'
     tokenizer = tokenizer_class.from_pretrained(args.base_model, token=args.hf_token, device_map="auto")
-    
+
+    bnb_config = None
+    if args.load_4bit:
+        bnb_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_quant_type="nf4", bnb_4bit_compute_dtype=torch.float16)
+    elif args.load_8bit:
+        bnb_config = BitsAndBytesConfig(load_in_8bit=True)
+
     if 'mt0' in args.base_model:
-        model = AutoModelForSeq2SeqLM.from_pretrained(args.base_model, device_map="auto", load_in_8bit="xxl" in args.base_model, token=args.hf_token, trust_remote_code=True)
+        model = AutoModelForSeq2SeqLM.from_pretrained(args.base_model, device_map="auto", token=args.hf_token, quantization_config=bnb_config, trust_remote_code=True)
         from utils import predict_classification_mt0 as predict_classification
         from utils import predict_classification_mt0_by_letter as predict_classification_by_letter
     else:
-        model = model_class.from_pretrained(args.base_model, load_in_8bit=args.load_8bit, torch_dtype=torch.float16, trust_remote_code=True, device_map="auto", token=args.hf_token)
+        model = model_class.from_pretrained(args.base_model, torch_dtype=torch.float16, trust_remote_code=True, device_map="auto", quantization_config=bnb_config, token=args.hf_token)
         from utils import predict_classification_causal as predict_classification
         from utils import predict_classification_causal_by_letter as predict_classification_by_letter
     

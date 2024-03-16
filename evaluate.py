@@ -3,14 +3,15 @@ import sys
 import pandas as pd
 import math
 import os
+import torch
+
 from peft import PeftModel
 from transformers import LlamaForCausalLM, LlamaTokenizer, AutoTokenizer, AutoModelForCausalLM, AutoModelForSeq2SeqLM 
 from tqdm import tqdm
 from numpy import argmax
-import torch
 from sklearn.metrics import accuracy_score
 from transformers import BitsAndBytesConfig
-
+from datasets import load_dataset
 
 if torch.cuda.is_available():
     device = "cuda"
@@ -30,29 +31,26 @@ def prepare_data(prompt):
     outputs = []
     outputs_options = []
     key2id = {'A': 0, 'B': 1, 'C': 2, 'D': 3, 'E': 4}
-    try:
-        data = pd.read_csv('data/indoMMLU.csv')
-    except FileNotFoundError:
-        data = pd.read_csv('./IndoMMLU/data/indoMMLU.csv')
+    data = pd.DataFrame(load_dataset("indolem/IndoMMLU")['test'])
 
     for idx, row in data.iterrows():
-        if row['level'] == 'Seleksi PTN':
+        if row['level'] == 'University entrance test':
             level = 'seleksi masuk universitas'
         else:
             try:
-                level = f"{math.trunc(float(row['kelas']))} {row['level']}"
+                level = f"{math.trunc(float(row['class']))} {row['level']}"
             except:
-                level = f"{row['kelas']} {row['level']}"
+                level = f"{row['class']} {row['level']}"
 
         inputs.append(
             prompt.replace('[SUBJECT]', row['subject']).\
                    replace('[LEVEL]', level).\
-                   replace('[INPUT]', row['soal']).\
-                   replace('[OPTION]',row['jawaban'])
+                   replace('[INPUT]', row['question']).\
+                   replace('[OPTION]',row['options'])
         )
-        idx_label = key2id[row['kunci']]
+        idx_label = key2id[row['answer']]
         outputs.append(idx_label)
-        outputs_options.append(row['jawaban'].split('\n'))
+        outputs_options.append(row['options'].split('\n'))
     return inputs, outputs, outputs_options
 
 
@@ -139,3 +137,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
